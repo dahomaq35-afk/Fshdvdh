@@ -19,7 +19,7 @@ main.py | Python 3.12+ | discord.py 2.7+
 
 ============================================================
 
-TOKEN = os.getenv("DISCORD_TOKEN")
+TOKEN = os.getenv(“DISCORD_TOKEN”)
 RESULT_CHANNEL_ID = int(os.getenv(“RESULT_CHANNEL_ID”, “0”))
 
 DATA_DIR = Path(“data”)
@@ -73,9 +73,7 @@ data = load_json(RESULTS_FILE, [])
 return data if isinstance(data, list) else []
 
 def valid_username(username):
-return bool(
-re.fullmatch(r”[A-Za-z0-9._]{3,4}”, username)
-)
+return bool(re.fullmatch(r”[A-Za-z0-9._]{3,4}”, username))
 
 def generate_usernames(limit=MAX_PER_RUN):
 candidates = set()
@@ -95,12 +93,10 @@ while len(candidates) < limit * 3:
     if valid_username(username):
         candidates.add(username)
 preferred = [
-    name for name in candidates
-    if name.startswith("d")
+    name for name in candidates if name.startswith("d")
 ]
 others = [
-    name for name in candidates
-    if not name.startswith("d")
+    name for name in candidates if not name.startswith("d")
 ]
 random.shuffle(preferred)
 random.shuffle(others)
@@ -108,8 +104,8 @@ return (preferred + others)[:limit]
 
 async def check_public_profile(session, username):
 “””
-يتحقق من ظهور بيانات الحساب في الصفحة العامة.
-لا يعتبر غياب البيانات دليلاً على توفر الاسم.
+يفحص الصفحة العامة فقط.
+لا يعتبر غياب بيانات الحساب دليلاً على توفر الاسم.
 “””
 url = f”https://www.tiktok.com/@{username}”
 
@@ -130,8 +126,10 @@ try:
             r'"uniqueId"\s*:\s*"' + re.escape(username) + r'"',
             r'"unique_id"\s*:\s*"' + re.escape(username) + r'"',
         )
-        if any(re.search(pattern, html, re.IGNORECASE)
-               for pattern in patterns):
+        if any(
+            re.search(pattern, html, re.IGNORECASE)
+            for pattern in patterns
+        ):
             return "❌", "ظهرت بيانات الحساب في الصفحة"
         return "❔", "لم يتوفر دليل موثوق على توفر الاسم"
 except asyncio.TimeoutError:
@@ -144,11 +142,9 @@ except Exception:
     return "❔", "تعذر التأكد"
 
 async def send_result(channel, username, status):
-message = f”{username} {status}”
-
 await channel.send(
-    message,
-    allowed_mentions=discord.AllowedMentions.none(),
+f”{username} {status}”,
+allowed_mentions=discord.AllowedMentions.none(),
 )
 
 @bot.event
@@ -192,7 +188,7 @@ if channel is None:
         return
 if not hasattr(channel, "send"):
     await interaction.response.send_message(
-        "المعرّف لا يشير إلى روم نصي يمكن إرسال الرسائل فيه.",
+        "المعرّف لا يشير إلى روم يمكن إرسال الرسائل فيه.",
         ephemeral=True,
     )
     return
@@ -203,7 +199,6 @@ await interaction.response.send_message(
 running = True
 stop_requested = False
 checked = 0
-found = False
 try:
     results = load_results()
     known = {
@@ -227,8 +222,7 @@ try:
             if username.lower() in known:
                 continue
             status, details = await check_public_profile(
-                session,
-                username,
+                session, username
             )
             record = {
                 "username": username,
@@ -240,34 +234,21 @@ try:
             }
             results.append(record)
             save_json(RESULTS_FILE, results)
+            known.add(username.lower())
             checked += 1
-            await send_result(
-                channel,
-                username,
-                status,
-            )
-            # لا توجد علامة ✅ ما لم تتوفر وسيلة موثوقة
-            # تثبت أن الاسم متاح بالفعل.
-            if status == "✅":
-                found = True
-                break
+            await send_result(channel, username, status)
+            # لا نستخدم علامة التوفر دون تأكيد موثوق.
+            # لذلك يتوقف الفحص عند أي نتيجة مؤكدة فقط،
+            # ولا يصنف الأسماء غير المؤكدة على أنها متاحة.
             await asyncio.sleep(CHECK_DELAY)
-    if found:
-        summary = (
-            f"تم العثور على اسم متاح مؤكد بعد فحص "
-            f"{checked} اسم."
-        )
-    elif stop_requested:
+    if stop_requested:
         summary = f"تم إيقاف الفحص بعد فحص {checked} اسم."
     else:
         summary = (
-            f"انتهى الفحص. عدد الأسماء التي فُحصت: {checked}. "
-            "لم يتم تأكيد توفر أي اسم."
+            f"انتهى الفحص. عدد الأسماء التي فُحصت: {checked}.\n"
+            "لم يتم تأكيد توفر أي اسم؛ علامة ❔ تعني أن النتيجة غير محسومة."
         )
-    await interaction.followup.send(
-        summary,
-        ephemeral=True,
-    )
+    await interaction.followup.send(summary, ephemeral=True)
 except Exception:
     log.exception("حدث خطأ أثناء الفحص")
     try:
@@ -288,7 +269,10 @@ description=“إيقاف الفحص الجاري”,
 async def stop_scan(interaction: discord.Interaction):
 global stop_requested
 
-if not interaction.guild or not interaction.user.guild_permissions.manage_guild:
+if (
+    not interaction.guild
+    or not interaction.user.guild_permissions.manage_guild
+):
     await interaction.response.send_message(
         "تحتاج صلاحية Manage Server لاستخدام هذا الأمر.",
         ephemeral=True,
@@ -316,18 +300,15 @@ results = load_results()
 total = len(results)
 taken = sum(
     1 for item in results
-    if isinstance(item, dict)
-    and item.get("status") == "❌"
+    if isinstance(item, dict) and item.get("status") == "❌"
 )
 available = sum(
     1 for item in results
-    if isinstance(item, dict)
-    and item.get("status") == "✅"
+    if isinstance(item, dict) and item.get("status") == "✅"
 )
 uncertain = sum(
     1 for item in results
-    if isinstance(item, dict)
-    and item.get("status") == "❔"
+    if isinstance(item, dict) and item.get("status") == "❔"
 )
 await interaction.response.send_message(
     f"**إجمالي الأسماء:** {total}\n"
