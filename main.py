@@ -19,7 +19,7 @@ main.py | Python 3.12+ | discord.py 2.7+
 
 ============================================================
 
-TOKEN = os.getenv(“DISCORD_TOKEN”)
+TOKEN = os.getenv("DISCORD_TOKEN")
 RESULT_CHANNEL_ID = int(os.getenv(“RESULT_CHANNEL_ID”, “0”))
 
 DATA_DIR = Path(“data”)
