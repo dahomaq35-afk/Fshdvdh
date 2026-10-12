@@ -19,7 +19,7 @@ main.py | Python 3.12+ | discord.py 2.7+
 
 ============================================================
 
-TOKEN = os.getenv(”DISCORD_TOKEN”)
+TOKEN = os.getenv("DISCORD_TOKEN")
 RESULT_CHANNEL_ID = int(os.getenv(“RESULT_CHANNEL_ID”, “0”))
 
 DATA_DIR = Path(“data”)
@@ -32,6 +32,7 @@ MAX_PER_RUN = 100
 REQUEST_TIMEOUT = 15
 
 ALPHABET = “abcdefghijklmnopqrstuvwxyz0123456789_”
+
 USER_AGENT = (
 “Mozilla/5.0 (Windows NT 10.0; Win64; x64) “
 “AppleWebKit/537.36 (KHTML, like Gecko) “
@@ -105,7 +106,7 @@ return (preferred + others)[:limit]
 async def check_public_profile(session, username):
 “””
 يفحص الصفحة العامة فقط.
-لا يعتبر غياب بيانات الحساب دليلاً على توفر الاسم.
+غياب بيانات الحساب لا يثبت أن الاسم متاح.
 “””
 url = f”https://www.tiktok.com/@{username}”
 
@@ -135,7 +136,11 @@ try:
 except asyncio.TimeoutError:
     return "❔", "انتهت مهلة الاتصال"
 except aiohttp.ClientError as exc:
-    log.warning("خطأ اتصال أثناء فحص %s: %s", username, exc)
+    log.warning(
+        "خطأ اتصال أثناء فحص %s: %s",
+        username,
+        exc,
+    )
     return "❔", "تعذر الاتصال"
 except Exception:
     log.exception("خطأ أثناء فحص %s", username)
@@ -222,7 +227,8 @@ try:
             if username.lower() in known:
                 continue
             status, details = await check_public_profile(
-                session, username
+                session,
+                username,
             )
             record = {
                 "username": username,
@@ -237,9 +243,6 @@ try:
             known.add(username.lower())
             checked += 1
             await send_result(channel, username, status)
-            # لا نستخدم علامة التوفر دون تأكيد موثوق.
-            # لذلك يتوقف الفحص عند أي نتيجة مؤكدة فقط،
-            # ولا يصنف الأسماء غير المؤكدة على أنها متاحة.
             await asyncio.sleep(CHECK_DELAY)
     if stop_requested:
         summary = f"تم إيقاف الفحص بعد فحص {checked} اسم."
@@ -248,7 +251,10 @@ try:
             f"انتهى الفحص. عدد الأسماء التي فُحصت: {checked}.\n"
             "لم يتم تأكيد توفر أي اسم؛ علامة ❔ تعني أن النتيجة غير محسومة."
         )
-    await interaction.followup.send(summary, ephemeral=True)
+    await interaction.followup.send(
+        summary,
+        ephemeral=True,
+    )
 except Exception:
     log.exception("حدث خطأ أثناء الفحص")
     try:
